@@ -1,0 +1,25 @@
+[project]
+name = "items-search"
+version = "0.0.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.136",
+    "sqlalchemy[asyncio]>=2.0.49",
+    "aiosqlite>=0.22",
+    "uvicorn>=0.47",
+    "pyjwt>=2.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "pytest-asyncio>=1.3",
+    "httpx>=0.28",
+    "ruff>=0.15",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
