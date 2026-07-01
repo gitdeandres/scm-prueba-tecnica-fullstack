@@ -17,7 +17,7 @@ from app.auth import (
     get_current_user,
 )
 from app.database import Base, SessionLocal, engine, get_session
-from app.filters import apply_filters
+from app.filters import apply_filters, FilterItem
 from app.models import Item
 
 SEED_ITEMS = [
@@ -76,9 +76,16 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+# Límite de filas devueltas por búsqueda.
+# En producción se complementaría con paginación explícita (cursor o offset).
+MAX_ROWS = 100
+
+
 class SearchRequest(BaseModel):
-    # TODO (candidato): diseña aquí el contrato de filtros estructurados.
-    filters: str | None = None
+    # Lista de filtros estructurados. None o lista vacía devuelve todos los items (hasta MAX_ROWS).
+    # Cada filtro sigue el contrato: {"field": "status", "op": "=", "value": "pending"}
+    # Operadores disponibles: =, !=, >, <, like, in, is null
+    filters: list[FilterItem] | None = None
 
 
 class ItemOut(BaseModel):
@@ -118,8 +125,9 @@ async def search_items(
     session: Annotated[AsyncSession, Depends(get_session)],
     _user: Annotated[str, Depends(get_current_user)],
 ) -> list[ItemOut]:
-    stmt = select(Item)
-    stmt = apply_filters(stmt, payload.filters)
+    # limit() se aplica antes de los filtros para que el tope sea siempre efectivo
+    stmt = select(Item).limit(MAX_ROWS)
+    stmt = apply_filters(stmt, payload.filters, Item)
     result = await session.execute(stmt)
     return [ItemOut.model_validate(i) for i in result.scalars().all()]
 
