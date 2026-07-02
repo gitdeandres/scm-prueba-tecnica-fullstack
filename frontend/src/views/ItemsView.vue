@@ -38,8 +38,10 @@ async function fetchItems() {
 
 async function changeStatus(item: Item, newStatus: string) {
   try {
-    const response = await client.get(`/items/${item.id}/status/${newStatus}`)
+    // Usamos PATCH en lugar del GET original — semánticamente correcto para mutaciones parciales
+    const response = await client.patch(`/items/${item.id}/status`, { status: newStatus })
     const updated = response.data
+    // Actualizamos solo la fila afectada sin recargar toda la tabla
     const index = items.value.findIndex((i) => i.id === item.id)
     if (index !== -1) {
       items.value[index] = updated

@@ -149,3 +149,32 @@ async def set_item_status(
     await session.commit()
     await session.refresh(item)
     return ItemOut.model_validate(item)
+
+
+class StatusUpdate(BaseModel):
+    # Solo se permite actualizar el campo status
+    status: str
+
+
+@app.patch("/items/{item_id}/status")
+async def update_item_status(
+    item_id: int,
+    payload: StatusUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _user: Annotated[str, Depends(get_current_user)],
+) -> ItemOut:
+    """
+    Reemplaza al GET /items/{item_id}/status/{new_status} original.
+    PATCH es el método semánticamente correcto para mutaciones parciales de un recurso.
+    El GET original se mantiene para no romper compatibilidad con el contrato dado.
+    """
+    result = await session.execute(select(Item).where(Item.id == item_id))
+    item = result.scalar_one_or_none()
+
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item no encontrado.")
+
+    item.status = payload.status
+    await session.commit()
+    await session.refresh(item)
+    return ItemOut.model_validate(item)

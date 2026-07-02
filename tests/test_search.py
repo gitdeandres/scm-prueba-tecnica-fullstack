@@ -86,3 +86,30 @@ async def test_search_limite_filas(client: AsyncClient) -> None:
     response = await client.post("/items/search", json={})
     assert response.status_code == 200
     assert len(response.json()) <= 100
+
+
+@pytest.mark.asyncio
+async def test_patch_status_actualiza_item(client: AsyncClient) -> None:
+    """PATCH /items/{id}/status debe actualizar el status y devolver el item actualizado."""
+    # Primero obtenemos un item existente
+    search = await client.post("/items/search", json={})
+    item_id = search.json()[0]["id"]
+
+    response = await client.patch(
+        f"/items/{item_id}/status",
+        json={"status": "done"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "done"
+    assert response.json()["id"] == item_id
+
+
+@pytest.mark.asyncio
+async def test_patch_status_item_inexistente_devuelve_404(client: AsyncClient) -> None:
+    """Un item_id que no existe debe devolver 404 con mensaje claro."""
+    response = await client.patch(
+        "/items/99999/status",
+        json={"status": "done"},
+    )
+    assert response.status_code == 404
+    assert "no encontrado" in response.json()["detail"].lower()
