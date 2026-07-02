@@ -15,6 +15,14 @@ interface Item {
   warehouse_id: number
 }
 
+// Campos y operadores disponibles para el filtro — alineados con el contrato del backend
+const OPERATORS = ['=', '!=', '>', '<', 'like'] as const
+type FilterOperator = (typeof OPERATORS)[number]
+
+const filterField = ref<'status' | 'warehouse_id'>('status')
+const filterOperator = ref<FilterOperator>('=')
+const filterValue = ref('')
+
 const items = ref<Item[]>([])
 const loading = ref(false)
 const error = ref('')
@@ -22,8 +30,15 @@ const error = ref('')
 async function fetchItems() {
   error.value = ''
   loading.value = true
+
+  // Construye el payload: con filtro si hay valor, sin filtro si está vacío
+  const filters =
+    filterValue.value.trim()
+      ? [{ field: filterField.value, op: filterOperator.value, value: filterValue.value.trim() }]
+      : null
+
   try {
-    const response = await client.post('/items/search', {})
+    const response = await client.post('/items/search', { filters })
     items.value = response.data
   } catch (e) {
     if (axios.isAxiosError(e) && e.response?.status === 401) {
@@ -34,6 +49,13 @@ async function fetchItems() {
   } finally {
     loading.value = false
   }
+}
+
+function clearFilter() {
+  filterField.value = 'status'
+  filterOperator.value = '='
+  filterValue.value = ''
+  fetchItems()
 }
 
 async function changeStatus(item: Item, newStatus: string) {
@@ -68,9 +90,33 @@ onMounted(fetchItems)
 
     <main>
       <div class="toolbar">
-        <button @click="fetchItems" :disabled="loading">
-          {{ loading ? 'Cargando...' : 'Buscar items' }}
-        </button>
+        <!-- Filtro simple: un campo + operador + valor. -->
+        <!-- Campos disponibles alineados con los permitidos por el backend (status, warehouse_id) -->
+        <div class="filters">
+          <select v-model="filterField">
+            <option value="status">Estado</option>
+            <option value="warehouse_id">Almacén</option>
+          </select>
+
+          <select v-model="filterOperator">
+            <option v-for="op in OPERATORS" :key="op" :value="op">{{ op }}</option>
+          </select>
+
+          <input
+            v-model="filterValue"
+            type="text"
+            placeholder="Valor..."
+            @keyup.enter="fetchItems"
+          />
+
+          <button @click="fetchItems" :disabled="loading">
+            {{ loading ? 'Buscando...' : 'Buscar' }}
+          </button>
+
+          <button class="clear" @click="clearFilter" :disabled="loading">
+            Limpiar
+          </button>
+        </div>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
@@ -203,5 +249,45 @@ select {
 .error {
   color: #dc2626;
   margin-bottom: 1rem;
+}
+
+.filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filters select,
+.filters input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.filters input {
+  min-width: 140px;
+}
+
+.filters button {
+  padding: 0.4rem 0.875rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.filters button.clear {
+  background: transparent;
+  border: 1px solid #6b7280;
+  color: #6b7280;
+}
+
+.filters button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
